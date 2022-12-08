@@ -1,13 +1,5 @@
 /**
- *Submitted for verification at BscScan.com on 2022-11-22
-*/
-
-/**
- *Submitted for verification at BscScan.com on 2022-11-18
-*/
-
-/**
- *Submitted for verification at BscScan.com on 2022-09-29
+ *Submitted for verification at BscScan.com on 2022-12-06
 */
 
 /*BIOKRIPT SMART CONTRACTS
